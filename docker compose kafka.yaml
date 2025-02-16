@@ -1,0 +1,68 @@
+version: "3.8"
+
+services:
+  # Service Redis (Cache)
+  redis:
+    image: redis:alpine
+    container_name: redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+
+  # Service Kafka Broker
+  broker:
+    image: confluentinc/cp-kafka:latest
+    container_name: broker
+    hostname: broker
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT"
+      KAFKA_LISTENERS: "PLAINTEXT://broker:9092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://localhost:29092"
+      KAFKA_LISTENER_INTERNAL: "PLAINTEXT://broker:9092"
+      KAFKA_LISTENER_EXTERNAL: "PLAINTEXT://localhost:29092"
+      KAFKA_LISTENERS_INTERNAL: "PLAINTEXT://broker:9092"
+      KAFKA_LISTENERS_EXTERNAL: "PLAINTEXT://localhost:29092"
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_BROKER_ID: "1"
+    depends_on:
+      - redis
+    networks:
+      - kafka_net
+
+  # Service Kafka Producer
+  kafka-producer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kafka-producer
+    environment:
+      - KAFKA_BROKER=broker:9092
+    depends_on:
+      - broker
+    networks:
+      - kafka_net
+
+  # Service Kafka Consumer
+  housing-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: housing-consumer
+    environment:
+      - KAFKA_BROKER=broker:9092
+    depends_on:
+      - broker
+    networks:
+      - kafka_net
+
+networks:
+  kafka_net:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local
